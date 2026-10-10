@@ -1,0 +1,33 @@
+# Dependencies
+node_modules
+
+# Generated builds
+.next
+out
+build
+dist
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local environment and secret files.
+# .env.example is safe to commit. It contains placeholders only.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Generated TypeScript files
+*.tsbuildinfo
+next-env.d.ts
+/src/generated/prisma
+
+# Operating system files
+.DS_Store
+
+# npm modules
+node_modules

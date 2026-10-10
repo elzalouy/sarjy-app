@@ -1,0 +1,1058 @@
+# Sarjy Web — Micro-Phase Implementation Plan
+
+## Global Execution Rules
+
+1. Execute one phase only.
+2. Inspect existing files before making changes.
+3. Do not start a future phase before the current one is confirmed.
+4. Preserve existing files and Git changes unless their replacement is explicitly approved.
+5. After every phase, report:
+   - Goal and implementation summary.
+   - Files created or changed.
+   - Commands executed.
+   - Test/build results.
+   - Known limitations and unresolved decisions.
+   - Acceptance criteria status.
+6. Stop and wait for explicit user confirmation before proceeding.
+7. Never claim a test passed unless it was actually executed.
+8. Keep secrets server-side and never expose them through client bundles.
+9. Use one ORM only. Use a stable Prisma release with PostgreSQL migrations.
+10. Keep Route Handlers thin and business logic in server-side application/service modules.
+
+---
+
+# A. Project Foundation
+
+## W00 — Inspect Repository State
+
+**Deliverable:** Repository assessment.
+
+- Inspect Git status, repository files, Node.js version, available package managers, and current tooling.
+- Confirm whether the repository is empty or partially initialized.
+- Do not modify files.
+
+**Acceptance criteria**
+
+- Repository state and local environment are documented.
+- No files are changed.
+
+## W01 — Select Runtime and Package Manager
+
+**Deliverable:** Explicit toolchain decision.
+
+- Select a supported Node.js LTS version.
+- Select one package manager.
+- Record the Next.js, TypeScript, and package manager versions to use.
+- Prefer stable releases over prereleases.
+
+**Acceptance criteria**
+
+- The toolchain is documented and reproducible.
+
+## W02 — Initialize Next.js
+
+**Deliverable:** Minimal running Next.js application.
+
+- Initialize Next.js with App Router and TypeScript.
+- Use a `src` directory if supported by the selected project setup.
+- Keep the initial application minimal.
+- Do not install feature-specific dependencies yet.
+
+**Acceptance criteria**
+
+- The development server starts.
+- The main page loads.
+
+## W03 — Verify Project Scripts
+
+**Deliverable:** Standard development commands.
+
+- Configure development, production build, lint, type-check, and test commands.
+- Add a test runner only if one is not already present.
+- Execute every configured command.
+
+**Acceptance criteria**
+
+- All checks pass, or each failure is documented.
+
+## W04 — Establish Directory Boundaries
+
+**Deliverable:** Agreed code organization.
+
+Proposed structure:
+
+src/
+app/
+api/
+components/
+features/
+auth/
+conversations/
+memory/
+voice/
+server/
+config/
+database/
+auth/
+conversations/
+memory/
+integrations/
+shared/
+
+- Separate client components from server-only modules.
+- Keep controllers/Route Handlers separate from use cases and persistence.
+- Use lightweight domain-oriented modules rather than introducing unnecessary framework abstractions.
+
+**Acceptance criteria**
+
+- Module boundaries and dependency direction are documented.
+- No business logic is duplicated in UI components.
+
+## W05 — Add Environment Validation
+
+**Deliverable:** Centralized server configuration.
+
+- Define a validated environment schema.
+- Include database, session/authentication, LiveKit, internal-service authentication, and weather configuration.
+- Add a safe `.env.example`.
+- Ensure environment validation runs on the server only.
+
+**Acceptance criteria**
+
+- Missing required settings generate actionable startup errors.
+- Secret values are not printed in logs.
+
+## W06 — Secure Repository Defaults
+
+**Deliverable:** Safe Git and secret-handling defaults.
+
+- Add appropriate `.gitignore` rules.
+- Exclude `.env` files, secrets, logs, generated builds, and dependencies.
+- Verify actual secret files are not tracked.
+
+**Acceptance criteria**
+
+- No real credentials are committed.
+- Example environment configuration contains placeholders only.
+
+## W07 — Add Structured Server Logging
+
+**Deliverable:** Consistent request logs.
+
+- Add request IDs.
+- Log method, route, status, duration, and safe error information.
+- Avoid logging passwords, session tokens, LiveKit secrets, or unnecessary transcript content.
+
+**Acceptance criteria**
+
+- A failed request can be traced without exposing credentials.
+
+## W08 — Standardize API Errors and Input Validation
+
+**Deliverable:** Common API response/error conventions.
+
+- Define request validation rules.
+- Establish a predictable error format.
+- Avoid exposing internal stack traces.
+- Keep client-facing errors separate from internal diagnostics.
+
+**Acceptance criteria**
+
+- Validation and unexpected errors are handled consistently.
+
+---
+
+# B. PostgreSQL and Prisma
+
+## W09 — Prepare PostgreSQL Environment
+
+**Deliverable:** A reproducible development database setup.
+
+- Decide whether to use an existing PostgreSQL instance or a local Docker Compose service.
+- Document the required PostgreSQL version and connection settings.
+- Do not add unrelated infrastructure.
+
+**Acceptance criteria**
+
+- The development database can be started or reached using documented instructions.
+
+## W10 — Install One Stable ORM
+
+**Deliverable:** Prisma initialized for PostgreSQL.
+
+- Install the chosen stable Prisma ORM release and required client/runtime packages.
+- Pin dependencies in the lockfile.
+- Confirm the exact migration workflow supported by the chosen Prisma release.
+- Do not install another ORM.
+
+**Acceptance criteria**
+
+- Prisma tooling and generated client work correctly.
+
+## W11 — Verify Database Connectivity
+
+**Deliverable:** Database connectivity check.
+
+- Configure the database connection.
+- Add a server-only database client module.
+- Execute a simple connectivity query.
+
+**Acceptance criteria**
+
+- A successful connection is verified.
+- Connection failures produce safe diagnostics.
+
+## W12 — Add Migration Workflow Documentation
+
+**Deliverable:** Documented schema-change procedure.
+
+- Document how to generate, review, and apply development migrations.
+- Document the production migration procedure.
+- Prohibit automatic schema synchronization as a replacement for versioned migrations.
+
+**Acceptance criteria**
+
+- Another developer can understand how a schema change becomes a migration.
+
+---
+
+# C. Authentication
+
+## W13 — Define User Schema
+
+**Deliverable:** User data model.
+
+Fields:
+
+- UUID ID.
+- Normalized phone number.
+- Password hash.
+- Creation and update timestamps.
+- Any minimal account status required by the application.
+
+**Acceptance criteria**
+
+- Phone number uniqueness is enforced at the database level.
+
+## W14 — Create User Migration
+
+**Deliverable:** Versioned database migration.
+
+- Generate and review the User migration.
+- Apply it to the development database.
+- Verify the resulting table and constraints.
+
+**Acceptance criteria**
+
+- A blank database can be initialized from the migration history.
+
+## W15 — Implement Phone Normalization
+
+**Deliverable:** Reusable phone normalization service.
+
+- Agree on accepted input formats.
+- Normalize numbers into a consistent international representation.
+- Reject malformed numbers.
+- Apply normalization before registration, login, and database lookups.
+
+**Acceptance criteria**
+
+- Equivalent phone formats map to one canonical identity.
+
+## W16 — Implement Password Hashing
+
+**Deliverable:** Password security service.
+
+- Use a suitable password hashing algorithm such as Argon2id.
+- Define password length and input validation rules.
+- Provide hash and verify operations.
+- Never store plain-text passwords.
+
+**Acceptance criteria**
+
+- Correct passwords verify successfully.
+- Incorrect passwords fail.
+- Passwords never appear in logs or API responses.
+
+## W17 — Implement Registration Use Case
+
+**Deliverable:** Register-user application service.
+
+- Normalize the phone number.
+- Validate the password.
+- Hash the password.
+- Create the user.
+- Handle duplicate phone numbers safely.
+
+**Acceptance criteria**
+
+- The use case is unit-tested independently of HTTP handling.
+
+## W18 — Implement Registration API
+
+**Deliverable:** `POST /api/v1/auth/register`.
+
+- Validate request data.
+- Invoke the registration use case.
+- Return a safe public user object.
+- Do not return password hashes or internal database fields.
+
+**Acceptance criteria**
+
+- Valid registration succeeds.
+- Invalid and duplicate registration attempts return controlled errors.
+
+## W19 — Define Authentication Session Model
+
+**Deliverable:** Session schema design.
+
+Include:
+
+- ID.
+- User ID.
+- Token hash or equivalent non-reusable session identifier.
+- Expiration timestamp.
+- Revocation/deletion metadata.
+- Creation timestamp.
+
+**Acceptance criteria**
+
+- Session expiry and revocation behavior is explicitly defined.
+
+## W20 — Add Session Migration
+
+**Deliverable:** Versioned Session migration.
+
+- Add the relationship to User.
+- Add indexes for session lookup and expiry/revocation queries.
+- Apply and test the migration.
+
+**Acceptance criteria**
+
+- Sessions are associated with the correct user.
+- Constraints and indexes are present.
+
+## W21 — Implement Login Use Case
+
+**Deliverable:** Authenticate-user service.
+
+- Normalize the phone number.
+- Verify the password hash.
+- Use generic invalid-credentials responses.
+- Create a secure session after successful authentication.
+
+**Acceptance criteria**
+
+- Valid credentials create a session.
+- Invalid credentials do not reveal whether a phone number is registered.
+
+## W22 — Implement Login API
+
+**Deliverable:** `POST /api/v1/auth/login`.
+
+- Validate inputs.
+- Call the authentication use case.
+- Set the authentication cookie.
+- Do not return the session secret in a public JSON payload.
+
+**Acceptance criteria**
+
+- Login succeeds through the actual HTTP endpoint.
+
+## W23 — Configure Secure Session Cookie
+
+**Deliverable:** Centralized cookie behavior.
+
+- Use `HttpOnly`.
+- Use `Secure` in production.
+- Select an appropriate `SameSite` policy.
+- Ensure cookie expiry matches session expiry.
+- Add appropriate origin/CSRF protections for cookie-authenticated state-changing operations.
+
+**Acceptance criteria**
+
+- Session credentials are not accessible through ordinary client-side JavaScript.
+
+## W24 — Implement Current User and Logout
+
+**Deliverables**
+
+- `GET /api/v1/auth/me`
+
+- `POST /api/v1/auth/logout`
+
+- Resolve the user from a valid session.
+
+- Reject expired or revoked sessions.
+
+- Revoke the active session on logout.
+
+- Clear the cookie.
+
+**Acceptance criteria**
+
+- `/me` returns only the public user.
+- Logout immediately invalidates the session.
+
+## W25 — Add Authentication Rate Limits
+
+**Deliverable:** Basic brute-force protection.
+
+- Apply limits to registration and login.
+- Avoid relying solely on IP address when account-based throttling is appropriate.
+- Ensure rate limiting does not expose account existence.
+
+**Acceptance criteria**
+
+- Repeated attempts are bounded.
+- Expected throttling responses are covered by tests.
+
+---
+
+# D. Authentication UI
+
+## W26 — Create Common UI Components
+
+**Deliverable:** Minimal shared design system.
+
+- Establish buttons, inputs, forms, alerts, loading indicators, and page containers.
+- Define spacing and typography.
+- Support responsive layouts.
+- Prepare proper Arabic direction handling for future transcript content.
+
+**Acceptance criteria**
+
+- Shared components render consistently.
+
+## W27 — Build Registration Page
+
+**Deliverable:** Functional registration UI.
+
+- Phone input.
+- Password input.
+- Client-side format feedback.
+- Submit/loading/error states.
+- Integration with the real registration API.
+
+**Acceptance criteria**
+
+- A user can register through the browser.
+
+## W28 — Build Login Page
+
+**Deliverable:** Functional login UI.
+
+- Phone and password fields.
+- Controlled submission.
+- Invalid-credential and server-error states.
+- Navigation after successful authentication.
+
+**Acceptance criteria**
+
+- A user can authenticate through the browser.
+
+## W29 — Add Protected App Layout
+
+**Deliverable:** Authenticated layout.
+
+- Protect private routes using server-side session validation.
+- Redirect unauthenticated users to login.
+- Add an account/logout control.
+- Ensure sensitive routes do not rely only on client-side redirects.
+
+**Acceptance criteria**
+
+- Private pages require a valid session.
+
+## W30 — Test Authentication End-to-End
+
+**Deliverable:** Authentication test suite.
+
+Test:
+
+- Successful registration and login.
+- Duplicate phone number.
+- Invalid credentials.
+- Expired session.
+- Revoked session.
+- Logout.
+- Unauthorized protected request.
+
+**Acceptance criteria**
+
+- Positive and negative cases pass.
+
+---
+
+# E. Conversations and Messages
+
+## W31 — Define Conversation and Message Models
+
+**Deliverable:** Schema proposal.
+
+Conversation:
+
+- ID.
+- User ID.
+- Unique LiveKit room name.
+- Status.
+- Created/updated timestamps.
+- Ended timestamp.
+
+Message:
+
+- ID.
+- Conversation ID.
+- Role.
+- Content.
+- Created timestamp.
+- Optional provider/event ID for deduplication.
+
+**Acceptance criteria**
+
+- Ownership, lifecycle, and message ordering are defined.
+
+## W32 — Create Conversation/Messages Migration
+
+**Deliverable:** Versioned database migration.
+
+- Add foreign keys.
+- Add an index for listing a user's conversations by creation time.
+- Add an index for messages by conversation and creation time.
+- Add a uniqueness constraint for idempotency/event identifiers where appropriate.
+
+**Acceptance criteria**
+
+- Migration applies to a fresh database.
+
+## W33 — Implement Conversation Repository
+
+**Deliverable:** Isolated persistence operations.
+
+- Create conversation.
+- Find by ID and owner.
+- List a user's conversations with bounded pagination.
+- Update allowed status fields.
+- Read and persist messages.
+
+**Acceptance criteria**
+
+- Repository integration tests pass.
+
+## W34 — Define Conversation State Transitions
+
+**Deliverable:** Conversation lifecycle rules.
+
+- Define active, ended, and failed states where needed.
+- Prevent invalid transitions.
+- Decide when a call failure ends or marks a conversation failed.
+
+**Acceptance criteria**
+
+- State transition rules can be unit-tested.
+
+## W35 — Implement Create Conversation Use Case
+
+**Deliverable:** Application service.
+
+- Require an authenticated user.
+- Generate a unique room name.
+- Create a conversation with a valid initial state.
+- Persist the conversation before issuing call credentials.
+
+**Acceptance criteria**
+
+- Conversation creation works without external LiveKit credentials.
+
+## W36 — Implement Create Conversation API
+
+**Deliverable:** `POST /api/v1/conversations`.
+
+- Authenticate caller.
+- Validate input.
+- Invoke the use case.
+- Return the conversation ID and status.
+
+**Acceptance criteria**
+
+- Authenticated creation succeeds.
+- Anonymous creation is rejected.
+
+## W37 — Implement List Conversations API
+
+**Deliverable:** `GET /api/v1/conversations`.
+
+- Return only the current user's conversations.
+- Add bounded pagination.
+- Use stable ordering.
+
+**Acceptance criteria**
+
+- Results never include another user's conversations.
+
+## W38 — Implement Get Conversation API
+
+**Deliverable:** `GET /api/v1/conversations/:id`.
+
+- Authenticate the user.
+- Verify ownership.
+- Return a safe conversation summary.
+
+**Acceptance criteria**
+
+- Guessing another conversation ID does not grant access.
+
+## W39 — Implement Message Retrieval API
+
+**Deliverable:** `GET /api/v1/conversations/:id/messages`.
+
+- Verify ownership.
+- Retrieve messages in chronological order.
+- Add bounded pagination when required.
+
+**Acceptance criteria**
+
+- Messages are correctly ordered and user-scoped.
+
+## W40 — Implement End Conversation API
+
+**Deliverable:** `POST /api/v1/conversations/:id/end`.
+
+- Verify ownership.
+- Apply lifecycle transition rules.
+- Make repeated requests safe.
+- Record the end timestamp.
+
+**Acceptance criteria**
+
+- A conversation can be ended without inconsistent state.
+
+---
+
+# F. LiveKit Access and Agent APIs
+
+## W41 — Configure LiveKit Server Settings
+
+**Deliverable:** Validated server-only configuration.
+
+- Add LiveKit server URL, API key, and API secret.
+- Keep credentials on the server.
+- Distinguish the browser's public LiveKit URL from server secrets.
+
+**Acceptance criteria**
+
+- No privileged LiveKit credentials are included in client bundles.
+
+## W42 — Define Voice Session Authorization
+
+**Deliverable:** Authorization contract between Next.js and Python.
+
+- Define how conversation ID, user ID, and room identity are validated.
+- Define server-to-server authentication.
+- Do not trust arbitrary user IDs sent by the browser or the LLM.
+
+**Acceptance criteria**
+
+- The agent cannot obtain another user's context simply by changing a request parameter.
+
+## W43 — Implement LiveKit Token API
+
+**Deliverable:** `POST /api/v1/conversations/:id/livekit-token`.
+
+- Require authentication.
+- Verify conversation ownership and valid status.
+- Generate a short-lived, room-scoped participant token.
+- Apply minimum required permissions.
+- Add supported agent dispatch/session configuration as required.
+
+**Acceptance criteria**
+
+- The browser receives only a constrained participant token.
+- Server API secrets are never returned.
+
+## W44 — Add Internal Service Authentication
+
+**Deliverable:** Protected server-to-server calls.
+
+- Add a dedicated internal credential for the Python agent.
+- Configure timeouts and credential rotation strategy.
+- Reject unauthenticated internal operations.
+- Never place this credential in browser-exposed settings.
+
+**Acceptance criteria**
+
+- Internal APIs reject requests without valid service authentication.
+
+## W45 — Add Internal Session Authorization API
+
+**Deliverable:** `POST /api/internal/voice-sessions/authorize`.
+
+- Authenticate the agent service.
+- Verify the conversation/user relationship.
+- Verify the conversation's allowed state.
+- Return only the context the agent requires.
+
+**Acceptance criteria**
+
+- The agent can validate a session before retrieving user data.
+
+## W46 — Add Internal Transcript Ingestion API
+
+**Deliverable:** Protected transcript persistence.
+
+- Accept a validated conversation ID, role, finalized text, timestamp, and event/idempotency ID where available.
+- Enforce conversation ownership.
+- Reject unsupported roles and oversized content.
+- Prevent duplicate persistence.
+
+**Acceptance criteria**
+
+- Valid events are stored exactly once.
+- Invalid service requests are rejected.
+
+---
+
+# G. Persistent Memory
+
+## W47 — Define Memory Data Model
+
+**Deliverable:** Structured memory schema.
+
+Recommended fields:
+
+- ID.
+- User ID.
+- Key.
+- JSONB value or a constrained text value.
+- Created and updated timestamps.
+
+Use a unique `(user_id, key)` constraint for single-value preferences.
+
+**Acceptance criteria**
+
+- Data shape and replacement policy are explicit.
+- No vector database is introduced for simple profile preferences.
+
+## W48 — Add Memory Migration
+
+**Deliverable:** Versioned Memory migration.
+
+- Add foreign key to User.
+- Add uniqueness constraint and lookup indexes.
+- Apply and inspect migration.
+
+**Acceptance criteria**
+
+- Memory records persist across conversations.
+
+## W49 — Implement Memory Repository
+
+**Deliverable:** Memory data access layer.
+
+- Upsert a preference.
+- Retrieve memories by user ID.
+- Update changed preferences.
+- Delete a fact where supported.
+
+**Acceptance criteria**
+
+- Operations enforce user scope.
+
+## W50 — Implement Memory Business Rules
+
+**Deliverable:** Memory application service.
+
+- Define allowed memory keys and value limits.
+- Define extraction approval and update rules.
+- Handle corrections.
+- Avoid storing sensitive information unnecessarily.
+
+**Acceptance criteria**
+
+- Invalid or disallowed memory writes are rejected.
+
+## W51 — Add Internal Memory APIs
+
+**Deliverables**
+
+- Agent-only memory retrieval.
+
+- Agent-only memory upsert.
+
+- Optional delete/update operation if required.
+
+- Require service authentication.
+
+- Enforce user ownership.
+
+- Validate every request body.
+
+**Acceptance criteria**
+
+- The agent can read/write only the intended user's memory.
+
+---
+
+# H. Weather Integration
+
+## W52 — Select a Weather API
+
+**Deliverable:** Documented provider decision.
+
+- Choose a suitable provider based on availability, usage limits, response fields, and setup time.
+- Decide whether an API key is required.
+- Keep the choice replaceable behind an adapter.
+
+**Acceptance criteria**
+
+- Provider requirements and limitations are documented.
+
+## W53 — Implement Weather Service
+
+**Deliverable:** Server-side weather adapter.
+
+- Validate location inputs.
+- Call the external API.
+- Normalize the response.
+- Add timeout handling.
+- Never allow arbitrary URL fetching.
+
+**Acceptance criteria**
+
+- Known inputs return structured weather data.
+
+## W54 — Add Protected Weather Endpoint
+
+**Deliverable:** Internal agent weather tool endpoint.
+
+- Authenticate service calls.
+- Validate tool arguments.
+- Return the minimum required data.
+- Handle provider failure and unknown locations honestly.
+
+**Acceptance criteria**
+
+- Weather credentials are never exposed to the browser or LLM.
+
+---
+
+# I. Voice UI and Browser Integration
+
+## W55 — Build the Static Call Screen
+
+**Deliverable:** Complete UI without real voice integration.
+
+Include:
+
+- Assistant identity.
+- Start/end call controls.
+- Microphone and connection status.
+- Assistant speaking/listening state.
+- Transcript area.
+- Loading, empty, and error states.
+
+**Acceptance criteria**
+
+- The page is responsive and works with mocked states.
+
+## W56 — Build Transcript Components
+
+**Deliverable:** Reusable transcript UI.
+
+- Distinguish user/assistant messages.
+- Handle partial and final captions.
+- Support Arabic RTL and mixed Arabic/English text.
+- Keep long messages readable.
+
+**Acceptance criteria**
+
+- Transcript ordering and direction are correct.
+
+## W57 — Add LiveKit Browser SDK
+
+**Deliverable:** Client-side room connection module.
+
+- Add the supported LiveKit React/WebRTC SDK.
+- Keep access token retrieval on the backend.
+- Handle connection lifecycle.
+- Clean up event listeners and room resources.
+
+**Acceptance criteria**
+
+- A valid scoped token can connect the browser to a test room.
+
+## W58 — Implement Start Call Flow
+
+**Deliverable:** Real call initiation.
+
+- Require authenticated user.
+- Create a conversation.
+- Request a scoped LiveKit token.
+- Connect to the room.
+- Show progress and failure state.
+
+**Acceptance criteria**
+
+- Rapid repeated clicks do not create duplicate calls or leaked connections.
+
+## W59 — Implement Microphone, Mute, and End Call
+
+**Deliverable:** Functional call controls.
+
+- Request microphone permission only after user action.
+- Handle denied permission.
+- Mute/unmute local audio.
+- End call and release media resources.
+
+**Acceptance criteria**
+
+- Controls reflect the actual connection state.
+
+## W60 — Reflect Actual Agent/Room Events
+
+**Deliverable:** Accurate live call status.
+
+- Show connecting, connected, listening, speaking, reconnecting, and ended states as supported.
+- Avoid guessing assistant state from HTTP requests alone.
+- Handle participant disconnection and failed room joins.
+
+**Acceptance criteria**
+
+- UI state agrees with actual room/provider events.
+
+## W61 — Instrument Browser Call Events
+
+**Deliverable:** Client-side timing events.
+
+Measure:
+
+- Start-call click.
+
+- Token request start/end.
+
+- Room connection start/end.
+
+- Agent participant joined.
+
+- Remote audio track available.
+
+- First observed remote audio playback.
+
+- Associate events with a non-sensitive conversation/session ID.
+
+- Avoid comparing monotonic clocks across machines.
+
+**Acceptance criteria**
+
+- Browser timings can be correlated to a session without exposing credentials.
+
+---
+
+# J. Quality, Metrics, and Release
+
+## W62 — Instrument API Latency
+
+**Deliverable:** Structured endpoint metrics.
+
+- Measure Route Handler duration.
+- Measure database calls in the relevant repository/service operations.
+- Record request ID, route name, status, and duration.
+- Avoid logging full request bodies.
+
+**Acceptance criteria**
+
+- Slow endpoints can be identified from actual timings.
+
+## W63 — Add Unit Tests
+
+**Deliverable:** Tests for business rules.
+
+Cover:
+
+- Phone normalization.
+- Password/session logic.
+- Conversation transitions.
+- Memory policy.
+- Weather argument validation.
+
+**Acceptance criteria**
+
+- Business rules are tested independently of external APIs.
+
+## W64 — Add Database/API Integration Tests
+
+**Deliverable:** Integration test suite.
+
+Cover:
+
+- Migrations.
+- User creation.
+- Conversation ownership.
+- Message persistence.
+- Memory upsert/retrieval.
+- Session revocation.
+- Internal-service authorization.
+
+**Acceptance criteria**
+
+- Tests verify actual database constraints and authorization behavior.
+
+## W65 — Add Security Regression Tests
+
+**Deliverable:** Explicit access-control tests.
+
+- Cross-user conversation read.
+- Cross-user memory read/write.
+- Expired/revoked session.
+- Internal endpoint without service credentials.
+- Unauthorized LiveKit token request.
+- Replayed transcript event.
+
+**Acceptance criteria**
+
+- Each unauthorized scenario fails safely.
+
+## W66 — Verify Production Build
+
+**Deliverable:** Build-ready repository.
+
+- Run lint, type checking, unit/integration tests, and production build.
+- Verify server-only imports and secret access.
+- Review warnings and build artifacts.
+
+**Acceptance criteria**
+
+- Build succeeds and no secret is bundled for the browser.
+
+## W67 — Deploy Next.js and Database
+
+**Deliverable:** Public HTTPS URL.
+
+- Configure managed PostgreSQL.
+- Apply production migrations using the documented release procedure.
+- Configure environment settings and cookies.
+- Configure public LiveKit URL and server-only credentials.
+- Validate database connectivity and health.
+
+**Acceptance criteria**
+
+- The deployed application can authenticate and use core APIs.
+
+## W68 — Document the Web Repository
+
+**Deliverable:** Maintainer-ready README.
+
+Include:
+
+- Toolchain and local setup.
+- Environment variables.
+- PostgreSQL setup and migration commands.
+- Authentication/session design.
+- API endpoint contract.
+- Test commands.
+- Deployment instructions.
+- Security limitations and known issues.
+
+**Acceptance criteria**
+
+- Another developer can run and test the project from a clean checkout.

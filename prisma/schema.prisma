@@ -1,0 +1,35 @@
+// Prisma schema for PostgreSQL.
+// The connection string is DATABASE_URL. See prisma7.config.ts.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Application account. Login uses the normalized phone number.
+model User {
+  /// Primary key. PostgreSQL generates the UUID with gen_random_uuid().
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Canonical phone number. The database rejects a second row with the same value.
+  phoneNumber  String        @unique @map("phone_number") @db.VarChar(16)
+  /// Password hash. The plain password is never stored.
+  passwordHash String        @map("password_hash")
+  /// active can sign in. disabled keeps the phone number reserved.
+  status       AccountStatus @default(active)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("users")
+}
+
+/// Minimal account lifecycle.
+enum AccountStatus {
+  active
+  disabled
+
+  @@map("account_status")
+}

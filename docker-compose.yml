@@ -1,0 +1,22 @@
+name: sarjy
+
+services:
+  postgres:
+    image: postgres:18.6
+    environment:
+      POSTGRES_USER: sarjy
+      POSTGRES_PASSWORD: sarjy
+      POSTGRES_DB: sarjy
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - sarjy-postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sarjy -d sarjy"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+volumes:
+  sarjy-postgres:

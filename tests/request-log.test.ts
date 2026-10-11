@@ -42,7 +42,7 @@ test("a failed request log can be traced without credentials", () => {
 
   logFailedRequest(
     new Error(
-      `login failed password=${password} sarjy_session=${sessionToken} LIVEKIT_API_SECRET=${livekitSecret} Bearer ${livekitSecret} transcript: ${transcript}`,
+      `login failed password=${password} sarjy_session=${sessionToken} LIVEKIT_API_SECRET=${livekitSecret} Bearer ${livekitSecret} transcript: ${transcript} https://api.example/weather?appid=${livekitSecret}`,
     ),
     {
       path: `/api/v1/auth/login?token=${queryToken}`,

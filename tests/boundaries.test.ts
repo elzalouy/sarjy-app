@@ -19,6 +19,7 @@ const directories = [
   "src/server/integrations",
   "src/server/memory",
   "src/server/shared",
+  "src/server/weather",
 ];
 
 const zones: Array<{ target: string; from: string }> = [
@@ -38,25 +39,35 @@ const zones: Array<{ target: string; from: string }> = [
   { target: "src/server/config", from: "src/server/integrations" },
   { target: "src/server/config", from: "src/server/memory" },
   { target: "src/server/config", from: "src/server/shared" },
+  { target: "src/server/config", from: "src/server/weather" },
   { target: "src/server/shared", from: "src/server/auth" },
   { target: "src/server/shared", from: "src/server/conversations" },
   { target: "src/server/shared", from: "src/server/database" },
   { target: "src/server/shared", from: "src/server/integrations" },
   { target: "src/server/shared", from: "src/server/memory" },
+  { target: "src/server/shared", from: "src/server/weather" },
   { target: "src/server/database", from: "src/server/auth" },
   { target: "src/server/database", from: "src/server/conversations" },
   { target: "src/server/database", from: "src/server/integrations" },
   { target: "src/server/database", from: "src/server/memory" },
+  { target: "src/server/database", from: "src/server/weather" },
   { target: "src/server/integrations", from: "src/server/auth" },
   { target: "src/server/integrations", from: "src/server/conversations" },
   { target: "src/server/integrations", from: "src/server/database" },
   { target: "src/server/integrations", from: "src/server/memory" },
+  { target: "src/server/integrations", from: "src/server/weather" },
   { target: "src/server/auth", from: "src/server/conversations" },
   { target: "src/server/auth", from: "src/server/memory" },
+  { target: "src/server/auth", from: "src/server/weather" },
   { target: "src/server/conversations", from: "src/server/auth" },
   { target: "src/server/conversations", from: "src/server/memory" },
+  { target: "src/server/conversations", from: "src/server/weather" },
   { target: "src/server/memory", from: "src/server/auth" },
   { target: "src/server/memory", from: "src/server/conversations" },
+  { target: "src/server/memory", from: "src/server/weather" },
+  { target: "src/server/weather", from: "src/server/auth" },
+  { target: "src/server/weather", from: "src/server/conversations" },
+  { target: "src/server/weather", from: "src/server/memory" },
 ];
 
 test("agreed source directories exist", async () => {

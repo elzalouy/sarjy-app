@@ -44,6 +44,7 @@ export async function issueLivekitToken(
     identity: input.userId,
     roomName: conversation.roomName,
     agentName: input.agentName,
+    conversationId: conversation.id,
   });
   return {
     token,

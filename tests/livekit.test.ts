@@ -67,12 +67,14 @@ test("browser source does not contain LiveKit or agent secrets", async () => {
 test("a participant token is room scoped and can dispatch the agent", async () => {
   const roomName = "room_abc123";
   const userId = "11111111-1111-4111-8111-111111111111";
+  const conversationId = "22222222-2222-4222-8222-222222222222";
   const token = await createParticipantToken({
     apiKey,
     apiSecret,
     identity: userId,
     roomName,
     agentName: "sarjy",
+    conversationId,
   });
   const claims = await new TokenVerifier(apiKey, apiSecret).verify(token);
 
@@ -87,6 +89,10 @@ test("a participant token is room scoped and can dispatch the agent", async () =
   assert.equal(claims.video?.roomRecord, false);
   assert.deepEqual(claims.video?.canPublishSources, ["microphone"]);
   assert.equal(claims.roomConfig?.agents[0]?.agentName, "sarjy");
+  assert.equal(
+    claims.roomConfig?.agents[0]?.metadata,
+    JSON.stringify({ conversationId }),
+  );
   assert.equal(token.includes(apiSecret), false);
   assert.equal(JSON.stringify(claims).includes(apiSecret), false);
 });

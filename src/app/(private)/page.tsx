@@ -1,15 +1,11 @@
 import type { Metadata } from "next";
-import { DirectionalText } from "../../components/directional-text.tsx";
-import { PageContainer } from "../../components/page-container.tsx";
+import { CallScreen } from "../../features/voice/call-screen.tsx";
 
 export const metadata: Metadata = {
-  title: "Home",
+  title: "Call",
 };
 
 export default function HomePage() {
-  return (
-    <PageContainer title="Home" width="wide">
-      <DirectionalText>You are signed in.</DirectionalText>
-    </PageContainer>
-  );
+  return <CallScreen />;
 }
+

@@ -24,6 +24,7 @@ model User {
   updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   sessions      Session[]
   conversations Conversation[]
+  memories      Memory[]
 
   @@map("users")
 }
@@ -65,6 +66,28 @@ model Conversation {
 
   @@index([userId, createdAt])
   @@map("conversations")
+}
+
+/// One preference for one user.
+/// One row exists for each user and key. A later write for that pair replaces value.
+/// created_at stays the first write. updated_at changes when value is replaced.
+/// Memory belongs to the user, not to a conversation. It stores no embeddings.
+model Memory {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  /// Short preference name, such as preferred_name. At most 64 characters.
+  key       String   @db.VarChar(64)
+  /// The whole JSON value. Replacement overwrites it. It does not merge fields inside the JSON.
+  value     Json     @db.JsonB
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// One preference for a user and key. user_id is first, so this also lists one user's keys.
+  @@unique([userId, key], map: "memories_user_id_key")
+  /// Lists every preference for one user.
+  @@index([userId])
+  @@map("memories")
 }
 
 /// One transcript line. Order in a conversation is created_at ascending, then id ascending.

@@ -476,6 +476,49 @@ test("a cross-site login is blocked before a session is created", async () => {
   assert.equal(response.headers.get("set-cookie"), null);
 });
 
+test("login from the browser host is allowed when the internal URL differs", async () => {
+  let queries = 0;
+  const deps = {
+    prisma: {
+      user: {
+        findUnique: async () => {
+          queries += 1;
+          return null;
+        },
+      },
+    } as never,
+    sessionSecret,
+    cookieName: "sarjy_session",
+    maxAgeSeconds: 3600,
+    secure: false,
+    limiter: createAuthRateLimiter({
+      phoneLimit: 5,
+      ipLimit: 20,
+      windowMs: 60_000,
+    }),
+    now: () => now,
+  };
+  const request = new Request("http://localhost:3000/api/v1/auth/login", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      host: "192.168.1.15:3000",
+      origin: "http://192.168.1.15:3000",
+    },
+    body: JSON.stringify({
+      phone: "+14155552671",
+      password: "wrong-horse-secret",
+    }),
+  });
+
+  const response = await handleLoginRequest(request, deps);
+  const body = (await response.json()) as ErrorBody;
+
+  assert.equal(response.status, 401);
+  assert.equal(body.error.code, "unauthorized");
+  assert.equal(queries, 1);
+});
+
 test("register, login, current user, and logout work over HTTP", async (t) => {
   const databaseUrl = process.env.DATABASE_URL?.trim();
   if (databaseUrl === undefined || databaseUrl.length === 0) {

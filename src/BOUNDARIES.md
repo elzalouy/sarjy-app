@@ -19,6 +19,7 @@ This file is the agreed code layout for the Next.js app. Keep new code inside th
 | `src/server/conversations` | Conversation use cases. |
 | `src/server/memory` | Memory use cases. |
 | `src/server/integrations` | Calls to outside systems, such as LiveKit and weather. |
+| `src/server/weather` | Weather use case for the agent. |
 | `src/server/shared` | Small server helpers used by more than one use case. |
 
 `src/features` is UI. `src/server` is server-only. Voice has UI under `src/features/voice`. LiveKit calls stay in `src/server/integrations`.
@@ -29,10 +30,11 @@ Read each row as: code in the first folder may import the second folder. Any oth
 
 | From | May import |
 |---|---|
-| `src/app` | `src/features`, `src/components`, and server use cases in `src/server/auth`, `src/server/conversations`, `src/server/memory`, `src/server/config`, `src/server/shared` |
+| `src/app` | `src/features`, `src/components`, and server use cases in `src/server/auth`, `src/server/conversations`, `src/server/memory`, `src/server/weather`, `src/server/config`, `src/server/shared` |
 | `src/features` | `src/components` only |
 | `src/components` | nothing inside `src` |
 | `src/server/auth`, `src/server/conversations`, `src/server/memory` | `src/server/database`, `src/server/integrations`, `src/server/config`, `src/server/shared` |
+| `src/server/weather` | `src/server/integrations`, `src/server/config`, `src/server/shared` |
 | `src/server/database`, `src/server/integrations` | `src/server/config`, `src/server/shared` |
 | `src/server/shared` | `src/server/config` |
 | `src/server/config` | nothing inside `src` |

@@ -36,6 +36,16 @@ export async function findUserByPhone(
   });
 }
 
+export async function findUserById(
+  prisma: PrismaClient,
+  id: string,
+): Promise<{ id: string } | null> {
+  return prisma.user.findUnique({
+    where: { id },
+    select: { id: true },
+  });
+}
+
 export async function findUserForLogin(
   prisma: PrismaClient,
   phone: string,

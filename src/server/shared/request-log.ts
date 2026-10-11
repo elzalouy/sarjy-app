@@ -128,6 +128,7 @@ function redactText(value: string): string {
   const withoutSecrets = singleLine
     .replace(/\b(?:postgresql|postgres):\/\/\S+/gi, REDACTED)
     .replace(/\bBearer\s+\S+/gi, `Bearer ${REDACTED}`)
+    .replace(/([?&](?:appid|key)=)[^&\s"]*/gi, `$1${REDACTED}`)
     .replace(/\bsarjy_session=[^;\s]*/gi, `sarjy_session=${REDACTED}`)
     .replace(
       /\b(password|passwd|session(?:[_-]?token)?|session(?:[_-]?secret)?|token|secret|api[_-]?key|api[_-]?secret|authorization|cookie|livekit(?:[_-]?api)?[_-]?(?:key|secret))\b(\s*[:=]\s*)(?:"[^"]*"|'[^']*'|\S+)/gi,

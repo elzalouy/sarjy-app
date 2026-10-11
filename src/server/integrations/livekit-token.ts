@@ -14,6 +14,7 @@ export async function createParticipantToken(input: {
   identity: string;
   roomName: string;
   agentName: string;
+  conversationId: string;
 }): Promise<string> {
   const token = new AccessToken(input.apiKey, input.apiSecret, {
     identity: input.identity,
@@ -37,7 +38,12 @@ export async function createParticipantToken(input: {
     agent: false,
   });
   token.roomConfig = new RoomConfiguration({
-    agents: [new RoomAgentDispatch({ agentName: input.agentName })],
+    agents: [
+      new RoomAgentDispatch({
+        agentName: input.agentName,
+        metadata: JSON.stringify({ conversationId: input.conversationId }),
+      }),
+    ],
   });
   return token.toJwt();
 }

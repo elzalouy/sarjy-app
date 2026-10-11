@@ -8,8 +8,21 @@ export const apiErrorCodes = {
   forbidden: "forbidden",
   notFound: "not_found",
   conflict: "conflict",
+  tooManyRequests: "too_many_requests",
   internalError: "internal_error",
 } as const;
+
+const tooManyRequestsMessage = "Too many attempts. Try again later.";
+
+export class RateLimitError extends Error {
+  readonly retryAfterSeconds: number;
+
+  constructor(retryAfterSeconds: number) {
+    super(tooManyRequestsMessage);
+    this.name = "RateLimitError";
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
 
 const clientErrors = {
   unauthorized: {
@@ -113,6 +126,17 @@ function toErrorResponse(error: unknown, requestId: string): Response {
       })),
     });
   }
+  if (error instanceof RateLimitError) {
+    return jsonError({
+      status: 429,
+      code: apiErrorCodes.tooManyRequests,
+      message: tooManyRequestsMessage,
+      requestId,
+      headers: {
+        "retry-after": String(error.retryAfterSeconds),
+      },
+    });
+  }
   if (error instanceof ApiError) {
     return jsonError({
       status: error.status,
@@ -143,6 +167,7 @@ function jsonError(input: {
   message: string;
   requestId: string;
   fields?: Array<{ name: string; message: string }>;
+  headers?: HeadersInit;
 }): Response {
   const error: {
     code: string;
@@ -157,14 +182,14 @@ function jsonError(input: {
   if (input.fields !== undefined && input.fields.length > 0) {
     error.fields = input.fields;
   }
+  const headers = new Headers(input.headers);
+  headers.set("cache-control", "no-store");
+  headers.set(REQUEST_ID_HEADER, input.requestId);
   return Response.json(
     { error },
     {
       status: input.status,
-      headers: {
-        "cache-control": "no-store",
-        [REQUEST_ID_HEADER]: input.requestId,
-      },
+      headers,
     },
   );
 }

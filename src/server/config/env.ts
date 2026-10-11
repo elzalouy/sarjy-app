@@ -7,6 +7,7 @@ const INTERNAL_SERVICE_TOKEN_MIN_LENGTH = 32;
 const DEFAULT_SESSION_COOKIE_NAME = "sarjy_session";
 const DEFAULT_SESSION_MAX_AGE_SECONDS = 2_592_000;
 const DEFAULT_INTERNAL_SERVICE_TIMEOUT_MS = 5_000;
+const DEFAULT_LIVEKIT_AGENT_NAME = "sarjy";
 
 export const requiredServerEnvKeys = [
   "DATABASE_URL",
@@ -24,6 +25,8 @@ export const optionalServerEnvKeys = [
   "SESSION_COOKIE_NAME",
   "SESSION_MAX_AGE_SECONDS",
   "INTERNAL_SERVICE_TIMEOUT_MS",
+  "INTERNAL_SERVICE_TOKEN_PREVIOUS",
+  "LIVEKIT_AGENT_NAME",
 ] as const;
 
 export type EnvSource = Record<string, string | undefined>;
@@ -47,9 +50,11 @@ export type ServerConfig = {
     readonly apiKey: string;
     readonly apiSecret: string;
     readonly publicUrl: string;
+    readonly agentName: string;
   };
   readonly internalService: {
     readonly token: string;
+    readonly previousToken: string | null;
     readonly timeoutMs: number;
   };
   readonly weather: {
@@ -73,6 +78,7 @@ type PublicConfig = {
   maxAgeSeconds: number;
   livekitUrl: string;
   livekitPublicUrl: string;
+  agentName: string;
   timeoutMs: number;
   weatherBaseUrl: string;
 };
@@ -146,6 +152,8 @@ export function loadServerConfig(
     "Required. Set a random token of at least 32 characters for the Python agent.",
     "Invalid. Use a random token of at least 32 characters.",
   );
+  const agentName = optionalAgentName(source, issues);
+  const previousServiceToken = optionalPreviousServiceToken(source, issues);
   const timeoutMs = optionalInteger(
     source,
     issues,
@@ -179,7 +187,9 @@ export function loadServerConfig(
     livekitApiKey === null ||
     livekitApiSecret === null ||
     livekitPublicUrl === null ||
+    agentName === null ||
     internalServiceToken === null ||
+    previousServiceToken === undefined ||
     timeoutMs === null ||
     weatherApiKey === null ||
     weatherBaseUrl === null
@@ -197,7 +207,9 @@ export function loadServerConfig(
       livekitApiKey,
       livekitApiSecret,
       livekitPublicUrl,
+      agentName,
       internalServiceToken,
+      previousServiceToken,
       timeoutMs,
       weatherApiKey,
       weatherBaseUrl,
@@ -207,6 +219,7 @@ export function loadServerConfig(
       maxAgeSeconds,
       livekitUrl,
       livekitPublicUrl,
+      agentName,
       timeoutMs,
       weatherBaseUrl,
     },
@@ -330,6 +343,46 @@ function requiredPublicUrl(
   return value;
 }
 
+function optionalAgentName(
+  source: EnvSource,
+  issues: EnvIssue[],
+): string | null {
+  const key = "LIVEKIT_AGENT_NAME";
+  const value = readText(source[key]);
+  if (value === undefined) {
+    return DEFAULT_LIVEKIT_AGENT_NAME;
+  }
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(value)) {
+    issues.push({
+      key,
+      message:
+        "Invalid. Use 1 to 64 characters: letters, numbers, underscores, or hyphens.",
+    });
+    return null;
+  }
+  return value;
+}
+
+function optionalPreviousServiceToken(
+  source: EnvSource,
+  issues: EnvIssue[],
+): string | null | undefined {
+  const key = "INTERNAL_SERVICE_TOKEN_PREVIOUS";
+  const value = readText(source[key]);
+  if (value === undefined) {
+    return null;
+  }
+  if (value.length < INTERNAL_SERVICE_TOKEN_MIN_LENGTH) {
+    issues.push({
+      key,
+      message:
+        "Invalid. Use a random token of at least 32 characters, or leave it unset.",
+    });
+    return undefined;
+  }
+  return value;
+}
+
 function optionalCookieName(
   source: EnvSource,
   issues: EnvIssue[],
@@ -381,6 +434,7 @@ type SecretConfig = PublicConfig & {
   livekitApiKey: string;
   livekitApiSecret: string;
   internalServiceToken: string;
+  previousServiceToken: string | null;
   weatherApiKey: string;
 };
 
@@ -409,21 +463,25 @@ function sealServerConfig(
       apiKey: secrets.livekitApiKey,
       apiSecret: secrets.livekitApiSecret,
       publicUrl: publicValues.livekitPublicUrl,
+      agentName: publicValues.agentName,
     },
     () => ({
       url: publicValues.livekitUrl,
       apiKey: REDACTED,
       apiSecret: REDACTED,
       publicUrl: publicValues.livekitPublicUrl,
+      agentName: publicValues.agentName,
     }),
   );
   const internalService = sealGroup(
     {
       token: secrets.internalServiceToken,
+      previousToken: secrets.previousServiceToken,
       timeoutMs: publicValues.timeoutMs,
     },
     () => ({
       token: REDACTED,
+      previousToken: secrets.previousServiceToken === null ? null : REDACTED,
       timeoutMs: publicValues.timeoutMs,
     }),
   );
@@ -457,9 +515,11 @@ function redactedServerConfig(publicValues: PublicConfig) {
       apiKey: REDACTED,
       apiSecret: REDACTED,
       publicUrl: publicValues.livekitPublicUrl,
+      agentName: publicValues.agentName,
     },
     internalService: {
       token: REDACTED,
+      previousToken: REDACTED,
       timeoutMs: publicValues.timeoutMs,
     },
     weather: {

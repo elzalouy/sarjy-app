@@ -53,6 +53,7 @@ const secretKeys = [
   "LIVEKIT_API_KEY",
   "LIVEKIT_API_SECRET",
   "INTERNAL_SERVICE_TOKEN",
+  "INTERNAL_SERVICE_TOKEN_PREVIOUS",
   "WEATHER_API_KEY",
 ] as const;
 
@@ -127,7 +128,9 @@ test("valid settings keep secrets available but out of logs", () => {
   assert.equal(config.livekit.apiKey, source.LIVEKIT_API_KEY);
   assert.equal(config.livekit.apiSecret, source.LIVEKIT_API_SECRET);
   assert.equal(config.livekit.publicUrl, "ws://localhost:7880");
+  assert.equal(config.livekit.agentName, "sarjy");
   assert.equal(config.internalService.token, source.INTERNAL_SERVICE_TOKEN);
+  assert.equal(config.internalService.previousToken, null);
   assert.equal(config.internalService.timeoutMs, 5_000);
   assert.equal(config.weather.apiKey, source.WEATHER_API_KEY);
   assert.equal(config.weather.baseUrl, "https://weather.example");
@@ -162,12 +165,24 @@ test("optional settings can override the defaults", () => {
       SESSION_COOKIE_NAME: "custom_session",
       SESSION_MAX_AGE_SECONDS: "3600",
       INTERNAL_SERVICE_TIMEOUT_MS: "1500",
+      LIVEKIT_AGENT_NAME: "voice-agent",
+      INTERNAL_SERVICE_TOKEN_PREVIOUS:
+        "replace-with-previous-internal-service-token",
     }),
   );
 
   assert.equal(config.session.cookieName, "custom_session");
   assert.equal(config.session.maxAgeSeconds, 3600);
   assert.equal(config.internalService.timeoutMs, 1500);
+  assert.equal(config.livekit.agentName, "voice-agent");
+  assert.equal(
+    config.internalService.previousToken,
+    "replace-with-previous-internal-service-token",
+  );
+  assert.equal(
+    loggedText(config).includes("replace-with-previous-internal-service-token"),
+    false,
+  );
 });
 
 test(".env.example has placeholders for every setting and passes validation", async () => {

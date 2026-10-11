@@ -15,7 +15,7 @@ import {
   RequestValidationError,
 } from "../shared/validate-request.ts";
 import {
-  fetchOpenWeather,
+  fetchCurrentWeather,
   WeatherLocationError,
   WeatherNotFoundError,
   WeatherUnavailableError,
@@ -75,7 +75,7 @@ function defaultWeatherDeps(): WeatherHandlerDeps {
       previous: config.internalService.previousToken,
     },
     current: (location) =>
-      fetchOpenWeather({
+      fetchCurrentWeather({
         baseUrl: config.weather.baseUrl,
         apiKey: config.weather.apiKey,
         location,

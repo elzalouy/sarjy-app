@@ -7,15 +7,13 @@ import {
   upsertMemory,
 } from "../database/memories.ts";
 import {
-  isAllowedMemoryKey,
   MemoryRejectedError,
   reviewMemoryRemoval,
   reviewMemoryWrite,
-  type AllowedMemoryKey,
 } from "./policy.ts";
 
 export type PublicMemory = {
-  key: AllowedMemoryKey;
+  key: string;
   value: string;
   updatedAt: Date;
 };
@@ -93,7 +91,7 @@ export async function listMemoryForUser(
   const rows = await listMemoriesForUser(prisma, userId);
   const memories: PublicMemory[] = [];
   for (const row of rows) {
-    if (!isAllowedMemoryKey(row.key) || typeof row.value !== "string") {
+    if (typeof row.value !== "string") {
       continue;
     }
     memories.push({
@@ -110,7 +108,7 @@ function toPublicMemory(memory: {
   value: unknown;
   updatedAt: Date;
 }): PublicMemory {
-  if (!isAllowedMemoryKey(memory.key) || typeof memory.value !== "string") {
+  if (typeof memory.value !== "string") {
     throw new Error("Could not store the memory.");
   }
   return {

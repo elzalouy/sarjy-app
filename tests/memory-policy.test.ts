@@ -21,24 +21,15 @@ registerHooks({
   },
 });
 
-const {
-  allowedMemoryKeys,
-  memoryRejectMessage,
-  memoryValueLimits,
-  reviewMemoryRemoval,
-  reviewMemoryWrite,
-} = await import("../src/server/memory/policy.ts");
+const { memoryRejectMessage, reviewMemoryRemoval, reviewMemoryWrite } =
+  await import("../src/server/memory/policy.ts");
 const { MemoryRejectedError } = await import("../src/server/memory/policy.ts");
 const { correctMemoryForUser, forgetMemoryForUser, rememberMemoryForUser } =
   await import("../src/server/memory/memory-service.ts");
 
 const userId = "11111111-1111-4111-8111-111111111111";
 
-test("memory policy allows only profile keys inside their limits", () => {
-  assert.deepEqual(allowedMemoryKeys, ["city", "language", "preferred_name"]);
-  assert.equal(memoryValueLimits.preferred_name, 40);
-  assert.equal(memoryValueLimits.city, 80);
-
+test("any memory key can be stored when the value is not sensitive", () => {
   const name = reviewMemoryWrite({
     key: "preferred_name",
     value: "  Sara   Ali  ",
@@ -53,11 +44,11 @@ test("memory policy allows only profile keys inside their limits", () => {
 
   const language = reviewMemoryWrite({
     key: "language",
-    value: " EN ",
+    value: " fr ",
     source: "user",
     approved: false,
   });
-  assert.deepEqual(language, { ok: true, key: "language", value: "en" });
+  assert.deepEqual(language, { ok: true, key: "language", value: "fr" });
 
   const city = reviewMemoryWrite({
     key: "city",
@@ -66,6 +57,18 @@ test("memory policy allows only profile keys inside their limits", () => {
     approved: true,
   });
   assert.deepEqual(city, { ok: true, key: "city", value: "Riyadh" });
+
+  const color = reviewMemoryWrite({
+    key: "favorite color",
+    value: "  navy blue  ",
+    source: "user",
+    approved: false,
+  });
+  assert.deepEqual(color, {
+    ok: true,
+    key: "favorite color",
+    value: "navy blue",
+  });
 });
 
 test("disallowed, oversized, extracted, and sensitive memory writes are rejected", () => {
@@ -76,25 +79,18 @@ test("disallowed, oversized, extracted, and sensitive memory writes are rejected
       value: "Sara",
       source: "user",
       approved: true,
-      reason: "disallowed_key",
+      reason: "sensitive",
     },
     {
       key: "phone_number",
       value: "+14155552671",
       source: "user",
       approved: true,
-      reason: "disallowed_key",
+      reason: "sensitive",
     },
     {
-      key: "preferred_name",
-      value: "a".repeat(41),
-      source: "user",
-      approved: true,
-      reason: "invalid_value",
-    },
-    {
-      key: "language",
-      value: "fr",
+      key: "hobby",
+      value: "a".repeat(81),
       source: "user",
       approved: true,
       reason: "invalid_value",
@@ -180,7 +176,7 @@ test("rejected memory writes do not reach the database", async () => {
       }),
     (error: unknown) => {
       assert.ok(error instanceof MemoryRejectedError);
-      assert.equal(error.reason, "disallowed_key");
+      assert.equal(error.reason, "sensitive");
       assert.equal(error.message.includes("secret-value"), false);
       return true;
     },
@@ -210,7 +206,7 @@ test("rejected memory writes do not reach the database", async () => {
       }),
     (error: unknown) => {
       assert.ok(error instanceof MemoryRejectedError);
-      assert.equal(error.reason, "disallowed_key");
+      assert.equal(error.reason, "sensitive");
       return true;
     },
   );

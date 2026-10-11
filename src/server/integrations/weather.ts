@@ -1,6 +1,6 @@
 import "server-only";
 
-const WEATHER_PATH = "/data/2.5/weather";
+const WEATHER_PATH = "current.json";
 const WEATHER_TIMEOUT_MS = 5_000;
 const LOCATION_MAX_LENGTH = 80;
 
@@ -58,7 +58,7 @@ export function readWeatherQuery(input: unknown): WeatherQuery {
   return { kind: "city", name: text };
 }
 
-export async function fetchOpenWeather(input: {
+export async function fetchCurrentWeather(input: {
   baseUrl: string;
   apiKey: string;
   location: string;
@@ -84,9 +84,6 @@ export async function fetchOpenWeather(input: {
   if (response.status === 404) {
     throw new WeatherNotFoundError();
   }
-  if (!response.ok) {
-    throw new WeatherUnavailableError();
-  }
   let payload: unknown;
   try {
     payload = await response.json();
@@ -96,32 +93,38 @@ export async function fetchOpenWeather(input: {
   if (isNotFoundPayload(payload)) {
     throw new WeatherNotFoundError();
   }
+  if (!response.ok) {
+    throw new WeatherUnavailableError();
+  }
   return normalizeReport(payload);
 }
 
 function weatherUrl(baseUrl: string, apiKey: string, query: WeatherQuery): URL {
-  let origin = "";
+  let parsed: URL;
   try {
-    const parsed = new URL(baseUrl);
-    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-      throw new WeatherUnavailableError();
-    }
-    origin = parsed.origin;
-  } catch (error) {
-    if (error instanceof WeatherUnavailableError) {
-      throw error;
-    }
+    parsed = new URL(baseUrl);
+  } catch {
     throw new WeatherUnavailableError();
   }
-  const url = new URL(WEATHER_PATH, origin);
-  url.searchParams.set("units", "metric");
-  url.searchParams.set("appid", apiKey);
-  if (query.kind === "city") {
-    url.searchParams.set("q", query.name);
-    return url;
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+    throw new WeatherUnavailableError();
   }
-  url.searchParams.set("lat", trimCoordinate(query.latitude));
-  url.searchParams.set("lon", trimCoordinate(query.longitude));
+  if (
+    parsed.username !== "" ||
+    parsed.password !== "" ||
+    parsed.search !== ""
+  ) {
+    throw new WeatherUnavailableError();
+  }
+  const base = parsed.href.endsWith("/") ? parsed.href : `${parsed.href}/`;
+  const url = new URL(WEATHER_PATH, base);
+  url.searchParams.set("key", apiKey);
+  url.searchParams.set(
+    "q",
+    query.kind === "city"
+      ? query.name
+      : `${trimCoordinate(query.latitude)},${trimCoordinate(query.longitude)}`,
+  );
   return url;
 }
 
@@ -146,24 +149,26 @@ function trimCoordinate(value: number): string {
 }
 
 function normalizeReport(payload: unknown): WeatherReport {
-  if (!isRecord(payload) || !isRecord(payload.main)) {
+  if (
+    !isRecord(payload) ||
+    !isRecord(payload.location) ||
+    !isRecord(payload.current)
+  ) {
     throw new WeatherUnavailableError();
   }
-  const temperature = payload.main.temp;
-  const humidity = payload.main.humidity;
-  const name = payload.name;
-  const condition = Array.isArray(payload.weather)
-    ? payload.weather[0]
-    : undefined;
+  const temperature = payload.current.temp_c;
+  const humidity = payload.current.humidity;
+  const name = payload.location.name;
+  const condition = payload.current.condition;
   const description =
-    isRecord(condition) && typeof condition.description === "string"
-      ? condition.description.trim()
+    isRecord(condition) && typeof condition.text === "string"
+      ? condition.text.trim()
       : "";
   const country =
-    isRecord(payload.sys) && typeof payload.sys.country === "string"
-      ? payload.sys.country.trim()
+    typeof payload.location.country === "string"
+      ? payload.location.country.trim()
       : "";
-  const observed = payload.dt;
+  const observed = payload.current.last_updated_epoch;
   if (
     typeof temperature !== "number" ||
     !Number.isFinite(temperature) ||
@@ -191,7 +196,10 @@ function normalizeReport(payload: unknown): WeatherReport {
 }
 
 function isNotFoundPayload(payload: unknown): boolean {
-  return isRecord(payload) && (payload.cod === 404 || payload.cod === "404");
+  if (!isRecord(payload) || !isRecord(payload.error)) {
+    return false;
+  }
+  return payload.error.code === 1006;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

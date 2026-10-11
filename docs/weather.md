@@ -6,8 +6,8 @@ The voice agent can ask for the current weather. The browser never calls the wea
 
 | Item | Choice |
 |---|---|
-| Provider | [OpenWeather Current Weather](https://openweathermap.org/current) |
-| Base URL | `https://api.openweathermap.org` |
+| Provider | [WeatherAPI current weather](https://www.weatherapi.com/docs/) |
+| Base URL | `https://api.weatherapi.com/v1` |
 | API key | Required. Set `WEATHER_API_KEY`. |
 | What we request | Current conditions only |
 | Timeout | 5 seconds |
@@ -17,13 +17,13 @@ The free plan is rate-limited. OpenWeather’s own site lists the current limit.
 
 The adapter calls only this path on the configured host:
 
-`/data/2.5/weather`
+`/v1/current.json`
 
 It does not fetch a URL from the agent. A place name or coordinates are query fields, not a web address.
 
 ## Replace the provider
 
-`fetchOpenWeather` is the only function that knows the OpenWeather URL and the `appid` parameter. Another provider can replace that function. The agent endpoint still returns the same fields:
+`fetchCurrentWeather` is the only function that knows the WeatherAPI URL and the `key` parameter. Another provider can replace that function. The agent endpoint still returns the same fields:
 
 | Field | Meaning |
 |---|---|

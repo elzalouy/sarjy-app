@@ -121,7 +121,7 @@ curl -sS -X POST "$BASE_URL/api/internal/conversations/$CONVERSATION_ID/transcri
 
 ## 3. Read memory
 
-Keys are `preferred_name`, `city`, and `language`. `language` is `ar` or `en`.
+Any key can be stored. A key is 1 to 64 characters. A value is 1 to 80 characters. Passwords, tokens, card numbers, email addresses, and phone numbers are rejected.
 
 ```bash
 curl -sS -X GET "$BASE_URL/api/internal/users/$USER_ID/memory" \

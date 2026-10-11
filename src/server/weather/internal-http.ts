@@ -2,7 +2,7 @@ import "server-only";
 import { getServerConfig } from "../config/env.ts";
 import { assertServiceCredential } from "../integrations/service-auth.ts";
 import {
-  fetchOpenWeather,
+  fetchCurrentWeather,
   readWeatherQuery,
   WeatherLocationError,
   WeatherNotFoundError,
@@ -81,7 +81,7 @@ function defaultWeatherDeps(): WeatherHandlerDeps {
       previous: config.internalService.previousToken,
     },
     current: (location) =>
-      fetchOpenWeather({
+      fetchCurrentWeather({
         baseUrl: config.weather.baseUrl,
         apiKey: config.weather.apiKey,
         location,

@@ -1,41 +1,28 @@
 import "server-only";
 
-// Profile preferences only. One short string per allowed key.
+// Any preference key can be stored.
 // A user statement can be stored immediately.
 // An extracted fact is stored only when approved is true.
-// A later allowed write replaces the previous value. That replacement is a correction.
+// A later write for the same key replaces the previous value.
 // Passwords, tokens, card numbers, email addresses, and phone numbers are not stored.
 
-export const allowedMemoryKeys = [
-  "city",
-  "language",
-  "preferred_name",
-] as const;
-
-export type AllowedMemoryKey = (typeof allowedMemoryKeys)[number];
-
-export const memoryValueLimits = {
-  preferred_name: 40,
-  city: 80,
-} as const;
-
-const languages = ["ar", "en"] as const;
+const KEY_MAX_LENGTH = 64;
+const VALUE_MAX_LENGTH = 80;
 
 export type MemorySource = "user" | "extracted";
 
 export type MemoryRejectReason =
-  | "disallowed_key"
   | "invalid_value"
   | "sensitive"
   | "approval_required"
   | "missing";
 
 export type MemoryWriteReview =
-  | { ok: true; key: AllowedMemoryKey; value: string }
+  | { ok: true; key: string; value: string }
   | { ok: false; reason: MemoryRejectReason };
 
 export type MemoryRemovalReview =
-  | { ok: true; key: AllowedMemoryKey }
+  | { ok: true; key: string }
   | { ok: false; reason: MemoryRejectReason };
 
 const sensitiveWords =
@@ -73,7 +60,7 @@ export function reviewMemoryWrite(input: {
   if (key.ok === false) {
     return key;
   }
-  const value = reviewValue(key.key, input.value);
+  const value = reviewValue(input.value);
   if (value.ok === false) {
     return value;
   }
@@ -103,16 +90,22 @@ export function reviewMemoryRemoval(input: {
 function reviewKey(
   key: unknown,
 ):
-  | { ok: true; key: AllowedMemoryKey }
-  | { ok: false; reason: "disallowed_key" } {
-  if (typeof key !== "string" || !isAllowedMemoryKey(key)) {
-    return { ok: false, reason: "disallowed_key" };
+  | { ok: true; key: string }
+  | { ok: false; reason: "invalid_value" | "sensitive" } {
+  if (typeof key !== "string") {
+    return { ok: false, reason: "invalid_value" };
   }
-  return { ok: true, key };
+  const text = normalizeText(key);
+  if (text === null || text.length > KEY_MAX_LENGTH) {
+    return { ok: false, reason: "invalid_value" };
+  }
+  if (isSensitive(text)) {
+    return { ok: false, reason: "sensitive" };
+  }
+  return { ok: true, key: text };
 }
 
 function reviewValue(
-  key: AllowedMemoryKey,
   value: unknown,
 ):
   | { ok: true; value: string }
@@ -120,21 +113,8 @@ function reviewValue(
   if (typeof value !== "string") {
     return { ok: false, reason: "invalid_value" };
   }
-  const text =
-    key === "language" ? normalizeLanguage(value) : normalizeText(value);
-  if (text === null) {
-    return { ok: false, reason: "invalid_value" };
-  }
-  if (key === "language" && !isLanguage(text)) {
-    return { ok: false, reason: "invalid_value" };
-  }
-  if (
-    key === "preferred_name" &&
-    text.length > memoryValueLimits.preferred_name
-  ) {
-    return { ok: false, reason: "invalid_value" };
-  }
-  if (key === "city" && text.length > memoryValueLimits.city) {
+  const text = normalizeText(value);
+  if (text === null || text.length > VALUE_MAX_LENGTH) {
     return { ok: false, reason: "invalid_value" };
   }
   if (isSensitive(text)) {
@@ -156,10 +136,6 @@ function reviewApproval(
   return null;
 }
 
-export function isAllowedMemoryKey(key: string): key is AllowedMemoryKey {
-  return (allowedMemoryKeys as readonly string[]).includes(key);
-}
-
 function normalizeText(value: string): string | null {
   if (controlChars.test(value)) {
     return null;
@@ -171,23 +147,9 @@ function normalizeText(value: string): string | null {
   return text;
 }
 
-function normalizeLanguage(value: string): string | null {
-  if (controlChars.test(value)) {
-    return null;
-  }
-  const text = value.trim().toLowerCase();
-  if (text.length === 0 || /\s/.test(text)) {
-    return null;
-  }
-  return text;
-}
-
-function isLanguage(value: string): boolean {
-  return (languages as readonly string[]).includes(value);
-}
-
 function isSensitive(text: string): boolean {
-  if (sensitiveWords.test(text) || emailAddress.test(text)) {
+  const words = text.replace(/[_-]+/g, " ");
+  if (sensitiveWords.test(words) || emailAddress.test(text)) {
     return true;
   }
   const digits = text.replace(/[\s().-]/g, "");

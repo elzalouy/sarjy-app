@@ -183,12 +183,7 @@ function mapMemoryError(error: unknown): Error {
     if (error.reason === "missing") {
       return new ApiError(404, apiErrorCodes.notFound, error.message);
     }
-    const field =
-      error.reason === "disallowed_key"
-        ? "key"
-        : error.reason === "approval_required"
-          ? "approved"
-          : "value";
+    const field = error.reason === "approval_required" ? "approved" : "value";
     return new RequestValidationError([
       { name: field, message: error.message },
     ]);

@@ -22,7 +22,7 @@ registerHooks({
 });
 
 const {
-  fetchOpenWeather,
+  fetchCurrentWeather,
   readWeatherQuery,
   WeatherLocationError,
   WeatherNotFoundError,
@@ -32,23 +32,20 @@ const { handleWeatherRequest } =
   await import("../src/server/weather/internal-http.ts");
 
 const apiKey = "weather-key-should-stay-hidden";
-const baseUrl = "https://api.openweathermap.org/data/2.5";
+const baseUrl = "https://api.weatherapi.com/v1";
 
 test("a city or coordinates become one weather request on the provider host", async () => {
   const city = await captureRequest("Riyadh");
-  assert.equal(city.origin, "https://api.openweathermap.org");
-  assert.equal(city.pathname, "/data/2.5/weather");
+  assert.equal(city.origin, "https://api.weatherapi.com");
+  assert.equal(city.pathname, "/v1/current.json");
   assert.equal(city.searchParams.get("q"), "Riyadh");
-  assert.equal(city.searchParams.get("appid"), apiKey);
-  assert.equal(city.searchParams.get("units"), "metric");
+  assert.equal(city.searchParams.get("key"), apiKey);
   assert.equal(city.redirect, "error");
 
   const point = await captureRequest("24.7136, 46.6753");
-  assert.equal(point.searchParams.get("q"), null);
-  assert.equal(point.searchParams.get("lat"), "24.7136");
-  assert.equal(point.searchParams.get("lon"), "46.6753");
+  assert.equal(point.searchParams.get("q"), "24.7136,46.6753");
 
-  const report = await fetchOpenWeather({
+  const report = await fetchCurrentWeather({
     baseUrl,
     apiKey,
     location: "  الرياض  ",
@@ -80,7 +77,7 @@ test("location text cannot choose a URL", async () => {
     "not a city 1",
   ]) {
     await assert.rejects(
-      () => fetchOpenWeather({ baseUrl, apiKey, location, fetchImpl }),
+      () => fetchCurrentWeather({ baseUrl, apiKey, location, fetchImpl }),
       WeatherLocationError,
     );
   }
@@ -94,14 +91,14 @@ test("location text cannot choose a URL", async () => {
 test("unknown places and provider failures stay free of the API key", async () => {
   await assert.rejects(
     () =>
-      fetchOpenWeather({
+      fetchCurrentWeather({
         baseUrl,
         apiKey,
         location: "Nowhereville",
         fetchImpl: async () =>
           Response.json(
-            { cod: "404", message: `missing ${apiKey}` },
-            { status: 404 },
+            { error: { code: 1006, message: `missing ${apiKey}` } },
+            { status: 400 },
           ),
       }),
     (error: unknown) => {
@@ -113,7 +110,7 @@ test("unknown places and provider failures stay free of the API key", async () =
 
   await assert.rejects(
     () =>
-      fetchOpenWeather({
+      fetchCurrentWeather({
         baseUrl,
         apiKey,
         location: "Riyadh",
@@ -129,7 +126,7 @@ test("unknown places and provider failures stay free of the API key", async () =
 
   await assert.rejects(
     () =>
-      fetchOpenWeather({
+      fetchCurrentWeather({
         baseUrl,
         apiKey,
         location: "Riyadh",
@@ -211,7 +208,7 @@ async function captureRequest(
 ): Promise<URL & { redirect: string }> {
   let seen = "";
   let redirect = "";
-  await fetchOpenWeather({
+  await fetchCurrentWeather({
     baseUrl,
     apiKey,
     location,
@@ -228,11 +225,13 @@ async function captureRequest(
 
 function sampleReport(name: string, country: string): unknown {
   return {
-    name,
-    sys: { country },
-    weather: [{ description: "clear sky" }],
-    main: { temp: 32.15, humidity: 12 },
-    dt: 1_760_169_600,
+    location: { name, country },
+    current: {
+      temp_c: 32.15,
+      humidity: 12,
+      last_updated_epoch: 1_760_169_600,
+      condition: { text: "clear sky" },
+    },
   };
 }
 

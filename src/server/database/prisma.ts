@@ -7,7 +7,12 @@ let cached: PrismaClient | undefined;
 
 export function createPrismaClient(connectionString: string): PrismaClient {
   return new PrismaClient({
-    adapter: new PrismaPg({ connectionString }),
+    adapter: new PrismaPg({
+      connectionString,
+      ssl: {
+        rejectUnauthorized: false,
+      },
+    }),
   });
 }
 
